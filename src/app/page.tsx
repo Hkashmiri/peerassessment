@@ -35,14 +35,37 @@ function createGroupCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
+function safeGetStorage(key: string) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeSetStorage(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Ignore storage errors (private mode, blocked storage).
+  }
+}
+
+function safeRandomId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+}
+
 function getOrCreateDeviceToken() {
-  const existing = localStorage.getItem(STORAGE_KEYS.deviceToken);
+  const existing = safeGetStorage(STORAGE_KEYS.deviceToken);
   if (existing) {
     return existing;
   }
 
-  const created = crypto.randomUUID();
-  localStorage.setItem(STORAGE_KEYS.deviceToken, created);
+  const created = safeRandomId();
+  safeSetStorage(STORAGE_KEYS.deviceToken, created);
   return created;
 }
 
@@ -52,13 +75,13 @@ function memberTokenKey(groupCode: string) {
 
 function getOrCreateMemberToken(groupCode: string) {
   const key = memberTokenKey(groupCode);
-  const existing = localStorage.getItem(key);
+  const existing = safeGetStorage(key);
   if (existing) {
     return existing;
   }
 
-  const created = crypto.randomUUID();
-  localStorage.setItem(key, created);
+  const created = safeRandomId();
+  safeSetStorage(key, created);
   return created;
 }
 
@@ -90,7 +113,7 @@ export default function HomePage() {
   const [nameError, setNameError] = useState("");
 
   useEffect(() => {
-    const storedGroup = localStorage.getItem(STORAGE_KEYS.activeGroup);
+    const storedGroup = safeGetStorage(STORAGE_KEYS.activeGroup);
     if (storedGroup) {
       setSelectedGroupCode(storedGroup);
     }
@@ -100,7 +123,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!selectedGroupCode) return;
-    localStorage.setItem(STORAGE_KEYS.activeGroup, selectedGroupCode);
+    safeSetStorage(STORAGE_KEYS.activeGroup, selectedGroupCode);
   }, [selectedGroupCode]);
 
   useEffect(() => {
@@ -154,7 +177,7 @@ export default function HomePage() {
 
   const currentMember = useMemo(() => {
     if (!selectedGroupCode) return null;
-    const token = localStorage.getItem(memberTokenKey(selectedGroupCode));
+    const token = safeGetStorage(memberTokenKey(selectedGroupCode));
     if (!token) return null;
     return (
       groupMembers.find((member) => member.localMemberToken === token) ?? null
@@ -351,7 +374,7 @@ export default function HomePage() {
         groupCode: selectedGroupCode,
         displayName: cleanName,
         memberNameKey: buildMemberNameKey(selectedGroupCode, cleanName),
-        localMemberToken: `invite-${crypto.randomUUID()}`,
+        localMemberToken: `invite-${safeRandomId()}`,
         active: true,
         joinedAt: Date.now(),
       }),
